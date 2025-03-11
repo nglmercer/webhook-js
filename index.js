@@ -132,12 +132,30 @@ const wsServer = new WebSocketServer();
 
 // Ruta para el webhook
 app.post('/webhook', (req, res) => {
-  logger.info(`Recibido webhook: ${JSON.stringify(req.body)}`);
+  // Obtener los headers específicos de Kick
+  const eventType = req.headers['kick-event-type'];
+  const eventVersion = req.headers['kick-event-version'];
+
+  logger.info(`Recibido webhook: Tipo=${eventType}, Version=${eventVersion}`);
+  logger.info(`Payload: ${JSON.stringify(req.body)}`);
   
+  // Verificar que los headers requeridos estén presentes
+  if (!eventType || !eventVersion) {
+    logger.error('Headers requeridos faltantes');
+    return res.status(400).send('Headers requeridos faltantes: kick-event-type y kick-event-version son obligatorios');
+  }
+
   // Verificar que el cuerpo sea un objeto JSON válido
   if (req.body && typeof req.body === 'object') {
     try {
-      wsServer.broadcast(req.body);
+      // Agregar los headers al objeto que se enviará
+      const messageWithHeaders = {
+        eventType,
+        eventVersion,
+        data: req.body
+      };
+
+      wsServer.broadcast(messageWithHeaders);
       return res.status(200).send('Mensaje transmitido');
     } catch (error) {
       logger.error(`Error al transmitir mensaje: ${error.message}`);
